@@ -3,6 +3,7 @@ pragma solidity ^0.8.0;
 
 import "./CopperToken.sol";
 import "@openzeppelin/contracts/access/Ownable.sol";
+import "hardhat/console.sol";
 
 contract NameRegistry is Ownable {
     CopperToken private _copperToken;
@@ -12,18 +13,27 @@ contract NameRegistry is Ownable {
     mapping(address => string[]) private _addressNames;
     mapping(string => uint) private _nameOwnershipExpirationTimestamp;
 
+    mapping(bytes32 => address) _nameHashes;
+
     constructor(address copperToken_) {
         _copperToken = CopperToken(copperToken_);
     }
 
+    function commitName(bytes32 _nameHash) public {
+        require(_nameHashes[_nameHash] == address(0), "The name is already commited.");
+        _nameHashes[_nameHash] = msg.sender;
+    }
+
     function registerName(string calldata _name) onlyFreeNames(_name) public {
+        verifyNameCommitedBySender(_name);
+
         uint nameRegistrationPriceInCopper = calculateNameRegistrationPrice(_name);
 
         require(_copperToken.allowance(msg.sender, address(this)) >= nameRegistrationPriceInCopper, 
-            "The client hasn't set enough allowance for the owner to pay for the name.");
+            "The client hasn't set enough allowance for NameRegistry contract to pay for the name.");
 
         _addressNames[msg.sender].push(_name);
-        _nameOwnershipExpirationTimestamp[_name] = _defaultNameOwnershipPeriodInSeconds;
+        _nameOwnershipExpirationTimestamp[_name] = block.timestamp + _defaultNameOwnershipPeriodInSeconds;
 
         _copperToken.transferFrom(msg.sender, address(this), nameRegistrationPriceInCopper);
 
@@ -36,17 +46,18 @@ contract NameRegistry is Ownable {
     }
 
     function releaseAvailableFunds() public {
-        string[] memory registeredNames = _addressNames[msg.sender];
+        string[] storage registeredNames = _addressNames[msg.sender];
 
         uint expiredNamesCount = 0;
         for (uint i = 0; i < registeredNames.length; i++) {
             if (_nameOwnershipExpirationTimestamp[registeredNames[i]] < block.timestamp) {
+                registeredNames[i] = registeredNames[registeredNames.length - 1];
+                registeredNames.pop();
                 expiredNamesCount++;
             }
         }
 
         uint releasedCopper = expiredNamesCount * _copperPerNamePrice;
-
         if (releasedCopper > 0) {
             _copperToken.approve(msg.sender, releasedCopper);
         }
@@ -58,8 +69,22 @@ contract NameRegistry is Ownable {
         return _addressNames[_addr];
     }
 
+    function encryptName(string calldata name) public view returns(bytes32 encrypted) {
+        return keccak256(abi.encodePacked(msg.sender, name));
+    }
+
     modifier onlyFreeNames(string calldata name) {
         require(_nameOwnershipExpirationTimestamp[name] < block.timestamp, "The name is already booked by someone.");
         _;
+    }
+
+    function verifyNameCommitedBySender(string calldata _name) private {
+        bytes32 nameHash = encryptName(_name);
+        require(_nameHashes[nameHash] == msg.sender, "The name is already booked by someone or not commited at all.");
+        _nameHashes[nameHash] = address(0);
+    }
+
+    function getFixedCopperPerNameFee() public view returns(uint price) {
+        return _copperPerNamePrice;
     }
 }
