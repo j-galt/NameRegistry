@@ -69,23 +69,22 @@ describe("NameRegistry", function () {
       expect(await copperToken.allowance(sut.address, addr1.address)).to.eql(await sut.getFixedCopperPerNameFee());
     });
 
-    // fix this
     it("Should clean expired names", async function () {
       // Arrange
       const [owner, addr1] = await ethers.getSigners();
       const name1 = "myName1", name2 = "myName2", name3 = "myName3";
       await buyCopperForEther(addr1, "1")
 
-      await registerName(name1);
+      await registerName(addr1, name1);
       await increaseBlockTimestamp(60 * 60 * 6);
-      await registerName(name2);
-      await registerName(name3);
+      await registerName(addr1, name2);
+      await registerName(addr1, name3);
 
       // Act
       await sut.connect(addr1).releaseAvailableFunds();
 
       // Assert
-      expect(await sut.getAddressNames(addr1.address)).to.eql([ name2, name3 ]);
+      expect(await sut.getAddressNames(addr1.address)).to.eql([ name3, name2 ]);
     });
   });
 
@@ -103,7 +102,7 @@ describe("NameRegistry", function () {
     const nameHash = await sut.connect(address).encryptName(name);
     await sut.connect(address).commitName(nameHash);
 
-    const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name1);
+    const namePrice = await sut.connect(address).calculateNameRegistrationPrice(name);
     await copperToken.connect(address).approve(sut.address, namePrice);
   
     await sut.connect(address).registerName(name);
