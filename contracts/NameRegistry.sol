@@ -16,6 +16,9 @@ contract NameRegistry is Ownable {
 
     NameRegistrationStage private _stage;
 
+    event nameRegistered(string name, address owner, uint priceInCopper);
+    event fundsReleased(uint releasedCopper, uint expiredNamesCount, address owner);
+
     constructor(address copperToken_) {
         _copperToken = CopperToken(copperToken_);
         _stage = NameRegistrationStage.Commit;
@@ -42,7 +45,7 @@ contract NameRegistry is Ownable {
 
         _copperToken.transferFrom(msg.sender, address(this), nameRegistrationPriceInCopper);
 
-        // rainse en event NameBooked(name, msg.sender, nameRegistrationPriceInCopper);    
+        emit nameRegistered(_name, msg.sender, nameRegistrationPriceInCopper);
     }
 
     function releaseAvailableFunds() public {
@@ -62,7 +65,7 @@ contract NameRegistry is Ownable {
             _copperToken.approve(msg.sender, releasedCopper);
         }
 
-        // raise an event {releasedCopper, expiredNamesCount, address}
+        emit fundsReleased(releasedCopper, expiredNamesCount, msg.sender);
     }
 
     function changeNameRegistrationStage(NameRegistrationStage stage_) public onlyOwner {
