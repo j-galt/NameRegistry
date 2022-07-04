@@ -12,18 +12,24 @@ contract NameRegistry is Ownable {
 
     mapping(address => string[]) private _addressNames;
     mapping(string => uint) private _nameOwnershipExpirationTimestamp;
-    mapping(bytes32 => bool) _nameHashes;
+    mapping(bytes32 => bool) private _nameHashes;
+
+    NameRegistrationStage private _stage;
 
     constructor(address copperToken_) {
         _copperToken = CopperToken(copperToken_);
+        _stage = NameRegistrationStage.Commit;
     }
 
     function commitName(bytes32 _nameHash) public {
+        require(_stage == NameRegistrationStage.Commit, "Commiting a name is allowed only at commit stage.");
         require(!_nameHashes[_nameHash], "The name is already commited.");
         _nameHashes[_nameHash] = true;
     }
 
     function registerName(string calldata _name) onlyFreeNames(_name) public {
+        require(_stage == NameRegistrationStage.Register, "Registering a name is allowed only at register stage.");
+
         verifyNameCommitedBySender(_name);
 
         uint nameRegistrationPriceInCopper = calculateNameRegistrationPrice(_name);
@@ -37,11 +43,6 @@ contract NameRegistry is Ownable {
         _copperToken.transferFrom(msg.sender, address(this), nameRegistrationPriceInCopper);
 
         // rainse en event NameBooked(name, msg.sender, nameRegistrationPriceInCopper);    
-    }
-
-    function calculateNameRegistrationPrice(string calldata _name) onlyFreeNames(_name) public view returns(uint) {
-        uint nameRegistrationFee = 0;
-        return _copperPerNamePrice + nameRegistrationFee;
     }
 
     function releaseAvailableFunds() public {
@@ -64,6 +65,15 @@ contract NameRegistry is Ownable {
         // raise an event {releasedCopper, expiredNamesCount, address}
     }
 
+    function changeNameRegistrationStage(NameRegistrationStage stage_) public onlyOwner {
+        _stage = stage_;
+    }
+
+    function calculateNameRegistrationPrice(string calldata _name) onlyFreeNames(_name) public view returns(uint) {
+        uint nameRegistrationFee = 0;
+        return _copperPerNamePrice + nameRegistrationFee;
+    }
+
     function getAddressNames(address _addr) public view returns(string[] memory names) {
         return _addressNames[_addr];
     }
@@ -72,13 +82,13 @@ contract NameRegistry is Ownable {
         return keccak256(abi.encodePacked(msg.sender, name));
     }
 
-    modifier onlyFreeNames(string calldata name) {
-        require(_nameOwnershipExpirationTimestamp[name] < block.timestamp, "The name is already booked by someone.");
-        _;
-    }
-
     function getFixedCopperPerNameFee() public view returns(uint price) {
         return _copperPerNamePrice;
+    }
+
+    modifier onlyFreeNames(string calldata name) {
+        require(_nameOwnershipExpirationTimestamp[name] < block.timestamp, "The name is already registered by someone.");
+        _;
     }
 
     function verifyNameCommitedBySender(string calldata _name) private {
@@ -86,4 +96,9 @@ contract NameRegistry is Ownable {
         require(_nameHashes[nameHash], "The name is not commited.");
         delete _nameHashes[nameHash];
     }
+}
+
+enum NameRegistrationStage {
+    Commit,
+    Register
 }
