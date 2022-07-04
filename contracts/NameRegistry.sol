@@ -7,21 +7,20 @@ import "hardhat/console.sol";
 
 contract NameRegistry is Ownable {
     CopperToken private _copperToken;
-    uint256 private _copperPerNamePrice = 5;
-    uint256 private _defaultNameOwnershipPeriodInSeconds = 60 * 60 * 5;
+    uint private _copperPerNamePrice = 5;
+    uint private _defaultNameOwnershipPeriodInSeconds = 60 * 60 * 5;
 
     mapping(address => string[]) private _addressNames;
     mapping(string => uint) private _nameOwnershipExpirationTimestamp;
-
-    mapping(bytes32 => address) _nameHashes;
+    mapping(bytes32 => bool) _nameHashes;
 
     constructor(address copperToken_) {
         _copperToken = CopperToken(copperToken_);
     }
 
     function commitName(bytes32 _nameHash) public {
-        require(_nameHashes[_nameHash] == address(0), "The name is already commited.");
-        _nameHashes[_nameHash] = msg.sender;
+        require(!_nameHashes[_nameHash], "The name is already commited.");
+        _nameHashes[_nameHash] = true;
     }
 
     function registerName(string calldata _name) onlyFreeNames(_name) public {
@@ -78,13 +77,13 @@ contract NameRegistry is Ownable {
         _;
     }
 
-    function verifyNameCommitedBySender(string calldata _name) private {
-        bytes32 nameHash = encryptName(_name);
-        require(_nameHashes[nameHash] == msg.sender, "The name is already booked by someone or not commited at all.");
-        _nameHashes[nameHash] = address(0);
-    }
-
     function getFixedCopperPerNameFee() public view returns(uint price) {
         return _copperPerNamePrice;
+    }
+
+    function verifyNameCommitedBySender(string calldata _name) private {
+        bytes32 nameHash = encryptName(_name);
+        require(_nameHashes[nameHash], "The name is not commited.");
+        delete _nameHashes[nameHash];
     }
 }
