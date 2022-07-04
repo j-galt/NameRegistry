@@ -289,6 +289,23 @@ describe("NameRegistry", function () {
 
   });
 
+  describe("#calculateNameRegistrationPrice()", function () {
+
+    it("Should add the fee based on the name length to the fixed name price", async function () {
+      // Arrange
+      const [owner, addr1] = await ethers.getSigners();
+      const name = "myName";
+      const fixedNamePrice = await sut.getFixedCopperPerNameFee();
+
+      // Act
+      const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
+
+      // Assert
+      expect(namePrice).to.equal(fixedNamePrice.toNumber() + name.length);
+    });
+
+  });
+
   async function buyCopperForEther(address, etherAmount) {
     const etherToPay = ethers.utils.parseEther(etherAmount);
     await copperExchange.connect(address).buy({ value: etherToPay });

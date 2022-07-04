@@ -70,7 +70,7 @@ contract NameRegistry is Ownable {
     }
 
     function calculateNameRegistrationPrice(string calldata _name) onlyFreeNames(_name) public view returns(uint) {
-        uint nameRegistrationFee = 0;
+        uint nameRegistrationFee = bytes(_name).length;
         return _copperPerNamePrice + nameRegistrationFee;
     }
 
