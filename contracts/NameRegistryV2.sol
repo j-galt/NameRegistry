@@ -144,6 +144,8 @@ contract NameRegistryV2 {
         _addressNames[nameOwner].push(name);
 
         _copperToken.transferFrom(msg.sender, address(this), nameRegistrationPriceInCopper);
+
+        emit nameRegistered(name, nameOwner, nameRegistrationPriceInCopper);
     }
 
     function calculateNameRegistrationPrice(string memory _name) public view returns(uint) {
