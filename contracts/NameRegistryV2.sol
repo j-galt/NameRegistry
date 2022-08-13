@@ -14,6 +14,7 @@ struct Name {
     uint ownershipExpirationTimestamp;
 }
 
+/** @title Name Registry */
 contract NameRegistryV2 {
     CopperToken private _copperToken;
     uint private _copperPerNamePrice = 5;
@@ -33,10 +34,19 @@ contract NameRegistryV2 {
         _copperToken = CopperToken(copperToken);
     }
 
+    /**
+    @notice Gets hash of the name.
+    @param name Name to be registered.
+    @return hash Hash of the name.
+    */
     function getNameHash(string memory name) public view returns (bytes32) {
         return getNameHash(name, msg.sender);
     }
 
+    /**
+    @notice Commits name hash got from getNameHash function.
+    @param nameHash Hash of the name.
+    */
     function commitNameHash(bytes32 nameHash) external {
         bytes32 hashOfNameHash = getHashOfNameHash(nameHash, msg.sender);
 
@@ -46,6 +56,12 @@ contract NameRegistryV2 {
         committers.push(msg.sender);
     }
 
+    /**
+    @notice Registers the name. The name should be committed beforehand as well as the required amount of tokens should be allowed to be taken by this contract.
+    @notice Front-running protection. If the name is submitted by a front runner, it will give it back to the earlier committer once the leter calls the function.
+    @notice Name expires in some time.
+    @param name Name to be registered.
+    */
     function registerName(string memory name) external {
         bytes32 hashOfNameHash = getHashOfNameHash(getNameHash(name), msg.sender);
 
@@ -77,11 +93,19 @@ contract NameRegistryV2 {
         }
     }
 
-    function getAddressNames(address addr) public view returns(string[] memory names) {
+    /**
+    @notice Gets the registered names of the address.
+    @param addr Owner of names.
+    @return names Registered names.
+    */
+    function getAddressNames(address addr) external view returns(string[] memory names) {
         return _addressNames[addr];
     }
 
-    function releaseAvailableFunds() public {
+    /**
+    @notice Releases the fixed portion of the price of names that expired.
+    */
+    function releaseAvailableFunds() external {
         string[] memory names = _addressNames[msg.sender];
 
         uint expiredNamesCount = 0;
@@ -102,23 +126,29 @@ contract NameRegistryV2 {
         emit fundsReleased(releasedCopper, expiredNamesCount, msg.sender);
     }
 
-    function getFixedCopperPerNameFee() public view returns(uint price) {
+    /**
+    @notice Gets the fixed portion of the price per name in Copper Token.
+    @return price The price per name in Copper Token.
+    */
+    function getFixedCopperPerNameFee() external view returns(uint price) {
         return _copperPerNamePrice;
     }
 
-    function getNameHash(string memory name, address sender)
-        private
-        pure
-        returns (bytes32)
-    {
+    /**
+    @notice Calculates name registration price in Copper Token based on the name length.
+    @param name Name to be evaluated.
+    @return price Name registration price in Copper Token.
+    */
+    function calculateNameRegistrationPrice(string memory name) public view returns(uint) {
+        uint nameRegistrationFee = bytes(name).length;
+        return _copperPerNamePrice + nameRegistrationFee;
+    }
+
+    function getNameHash(string memory name, address sender) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(name, sender));
     }
 
-    function getHashOfNameHash(bytes32 nameHash, address addr)
-        private
-        pure
-        returns (bytes32)
-    {
+    function getHashOfNameHash(bytes32 nameHash, address addr) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(nameHash, addr));
     }
 
@@ -148,12 +178,7 @@ contract NameRegistryV2 {
         emit nameRegistered(name, nameOwner, nameRegistrationPriceInCopper);
     }
 
-    function calculateNameRegistrationPrice(string memory _name) public view returns(uint) {
-        uint nameRegistrationFee = bytes(_name).length;
-        return _copperPerNamePrice + nameRegistrationFee;
-    }
-
-    function stringsEqual(string memory a, string memory b) public pure returns (bool) {
+    function stringsEqual(string memory a, string memory b) private pure returns (bool) {
         return (keccak256(abi.encodePacked((a))) == keccak256(abi.encodePacked((b))));
     }
 

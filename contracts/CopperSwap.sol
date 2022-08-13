@@ -6,6 +6,7 @@ import "@uniswap/v3-periphery/contracts/libraries/TransferHelper.sol";
 import "@uniswap/v3-periphery/contracts/interfaces/ISwapRouter.sol";
 import "./CopperToken.sol";
 
+/** @title Uniswap CPR/WETH pair Exchange */
 contract CopperSwap is Ownable {
     address private _cpr;
     address private _weth;
@@ -23,6 +24,11 @@ contract CopperSwap is Ownable {
         _swapRouter = ISwapRouter(swapRouter_);
     }
 
+    /**
+    @notice Exchanges the exact amount of WETH for CPR.
+    @param amountIn Amount of WETH to be swapped.
+    @return amountOut Amount of CPR received for WETH.
+    */
     function swapExactInputSingle(uint256 amountIn)
         external
         returns (uint256 amountOut)
