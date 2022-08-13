@@ -22,7 +22,7 @@ describe("NameRegistryV2", function () {
 
     describe("#registerName()", function () {
 
-        it("Should assign the name registered by front runner to the earlier committer", async function () {
+        it("Front running case 1. Should assign the name registered by front runner to the earlier committer", async function () {
             // Arrange
             const [owner, addr1, frontRunner] = await ethers.getSigners();
             const name = "myName";
@@ -45,7 +45,7 @@ describe("NameRegistryV2", function () {
             expect(await sut.getAddressNames(frontRunner.address)).to.eql([]);
         });
 
-        it("Should not register the name of the frontrunner if the frontrunner front run commit operation with the same name hash as the regular user", async function () {
+        it("Front running case 2. Should not register the name of the frontrunner if the frontrunner front run commit operation with the same name hash as the regular user", async function () {
             // Arrange
             const [owner, addr1, frontRunner] = await ethers.getSigners();
             const name = "myName";
