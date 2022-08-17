@@ -26,23 +26,22 @@ describe("NameRegistryV2", function () {
             // Arrange
             const [owner, addr1, frontRunner] = await ethers.getSigners();
             const name = "myName";
+            const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
 
-            await approveCopperForName(name, addr1);
+            await copperToken.connect(addr1).approve(sut.address, namePrice);
             const nameHash = await sut.connect(addr1).getNameHash(name);
             await sut.connect(addr1).commitNameHash(nameHash);
 
-            await approveCopperForName(name, frontRunner);
+            await copperToken.connect(frontRunner).approve(sut.address, namePrice);
             const frontRunnerNameHash = await sut.connect(frontRunner).getNameHash(name);
             await sut.connect(frontRunner).commitNameHash(frontRunnerNameHash);
             await sut.connect(frontRunner).registerName(name);
             expect(await sut.getAddressNames(frontRunner.address)).to.eql([name]);
 
-            // Act
-            await sut.connect(addr1).registerName(name);
-
-            // Assert
-            expect(await sut.getAddressNames(addr1.address)).to.eql([name]);
-            expect(await sut.getAddressNames(frontRunner.address)).to.eql([]);
+            // Act & Assert
+            expect(await sut.connect(addr1).registerName(name))
+                .to.emit(sut, "nameRegistered")
+                .withArgs(name, addr1.address, namePrice);
         });
 
         it("Front running case 2. Should not register the name of the frontrunner if the frontrunner front run commit operation with the same name hash as the regular user", async function () {
@@ -106,30 +105,29 @@ describe("NameRegistryV2", function () {
             await sut.connect(addr2).commitNameHash(nameHash2);
 
             // Act & Assert
-            await expect(sut.connect(addr2).registerName(name)).to.be.revertedWith("Name already registered by someone");
+            await expect(sut.connect(addr2).registerName(name)).to.not.emit(sut, "nameRegistered");
         });
 
         it("Should register an already registered expired name", async function () {
             // Arrange
             const [owner, addr1, addr2] = await ethers.getSigners();
             const name = "myName";
+            const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
 
-            await approveCopperForName(name, addr1);
+            await copperToken.connect(addr1).approve(sut.address, namePrice);
             const nameHash = await sut.connect(addr1).getNameHash(name);
             await sut.connect(addr1).commitNameHash(nameHash);
             await sut.connect(addr1).registerName(name);
             await increaseBlockTimestamp(60 * 60 * 6);
 
-            await approveCopperForName(name, addr2);
+            await copperToken.connect(addr2).approve(sut.address, namePrice);
             const nameHash2 = await sut.connect(addr2).getNameHash(name);
             await sut.connect(addr2).commitNameHash(nameHash2);
 
-            // Act 
-            await sut.connect(addr2).registerName(name);
-
-            // Assert
-            expect(await sut.getAddressNames(addr2.address)).to.eql([name]);
-            expect(await sut.getAddressNames(addr1.address)).to.eql([]);
+            // Act & Assert
+            expect(await sut.connect(addr2).registerName(name))
+                .to.emit(sut, "nameRegistered")
+                .withArgs(name, addr2.address, namePrice);
         });
 
         it("Should not register a name if allowance of copper is not enough to pay for it", async function () {

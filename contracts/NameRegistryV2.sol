@@ -67,29 +67,26 @@ contract NameRegistryV2 {
 
         Committer memory ownerCandidate = committedNameHashes[hashOfNameHash];
         require(ownerCandidate.addr == msg.sender, "Name not committed");
+        
+        address newNameOwnerAddress = ownerCandidate.addr;
+        Name memory registeredName = _registeredNames[name];
 
-        if (nameExpired(name)) {
-            unregisterName(_registeredNames[name].owner, name);
-            registerName(ownerCandidate.addr, name);
-        } 
-        else if (_registeredNames[name].owner != address(0)) {
+        if (registeredName.owner != address(0)) {
             bytes32 hashOfNameHashOfNameOwner = getHashOfNameHash(
-                getNameHash(name, _registeredNames[name].owner),
-                _registeredNames[name].owner
+                getNameHash(name, registeredName.owner),
+                registeredName.owner
             );
 
-            Committer memory nameOwner = committedNameHashes[hashOfNameHashOfNameOwner];
+            Committer memory currentNameOwner = committedNameHashes[hashOfNameHashOfNameOwner];
 
-            if (ownerCandidate.sequenceNumber < nameOwner.sequenceNumber) {
-                unregisterName(nameOwner.addr, name);
-                registerName(ownerCandidate.addr, name);
-            }
-            else {
-                revert("Name already registered by someone"); 
+            if (ownerCandidate.sequenceNumber > currentNameOwner.sequenceNumber
+                && !nameExpired(registeredName.ownershipExpirationTimestamp)) {
+                newNameOwnerAddress = currentNameOwner.addr;
             }
         }
-        else {
-            registerName(ownerCandidate.addr, name);
+        
+        if (msg.sender == newNameOwnerAddress) {
+            registerName(newNameOwnerAddress, name);
         }
     }
 
@@ -182,8 +179,7 @@ contract NameRegistryV2 {
         return (keccak256(abi.encodePacked((a))) == keccak256(abi.encodePacked((b))));
     }
 
-    function nameExpired(string memory name) private view returns(bool) {
-        Name memory registeredName = _registeredNames[name];
-        return registeredName.ownershipExpirationTimestamp > 0 && registeredName.ownershipExpirationTimestamp < block.timestamp;
+    function nameExpired(uint ownershipExpirationTimestamp) private view returns(bool) {
+        return ownershipExpirationTimestamp > 0 && ownershipExpirationTimestamp < block.timestamp;
     }
 }
