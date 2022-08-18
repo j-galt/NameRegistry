@@ -17,20 +17,21 @@ struct Name {
 /** @title Name Registry */
 contract NameRegistryV2 {
     CopperToken private _copperToken;
-    uint256 private _copperPerNamePrice = 5;
+    uint256 private _copperPerNamePrice;
 
     uint256 private sequenceNumber;
     mapping(bytes32 => Committer) private committedNameHashes;
     address[] private committers;
 
     mapping(bytes32 => Name) private _registeredNames;
-    uint256 private _defaultNameOwnershipPeriodInSeconds = 60 * 60 * 5;
+    uint256 constant private _defaultNameOwnershipPeriodInSeconds = 60 * 60 * 5;
 
     event nameRegistered(string name, address owner, uint256 priceInCopper);
     event fundsReleased(uint256 releasedCopper, address owner);
 
     constructor(address copperToken) {
         _copperToken = CopperToken(copperToken);
+        _copperPerNamePrice = 5 * 10 ** _copperToken.decimals();
     }
 
     /**
@@ -141,7 +142,7 @@ contract NameRegistryV2 {
         view
         returns (uint256)
     {
-        uint256 nameRegistrationFee = bytes(name).length;
+        uint256 nameRegistrationFee = bytes(name).length * 10 ** _copperToken.decimals();
         return _copperPerNamePrice + nameRegistrationFee;
     }
 

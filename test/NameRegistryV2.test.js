@@ -10,14 +10,14 @@ describe("NameRegistryV2", function () {
         const [_owner, addr1, addr2] = await ethers.getSigners();
 
         const copperTokenFactory = await ethers.getContractFactory("CopperToken");
-        copperToken = await copperTokenFactory.deploy(1000);
+        copperToken = await copperTokenFactory.deploy('1000000000000000000000');
 
         const nmeRegistryFactory = await ethers.getContractFactory("NameRegistryV2");
         sut = await nmeRegistryFactory.deploy(copperToken.address);
 
-        await copperToken.transfer(addr1.address, 250);
-        await copperToken.transfer(addr2.address, 250);
-        await copperToken.transfer(sut.address, 500);
+        await copperToken.transfer(addr1.address, '250000000000000000000');
+        await copperToken.transfer(addr2.address, '250000000000000000000');
+        await copperToken.transfer(sut.address, '500000000000000000000');
     });
 
     describe("#registerName()", function () {
@@ -74,8 +74,8 @@ describe("NameRegistryV2", function () {
             await sut.connect(addr1).registerName(name);
 
             // Assert
-            expect(await copperToken.balanceOf(sut.address)).to.equal(intialBalanceOfContract.toNumber() + namePrice.toNumber());
-            expect(await copperToken.balanceOf(addr1.address)).to.equal(intialBalanceOfCaller.toNumber() - namePrice.toNumber());
+            expect(await copperToken.balanceOf(sut.address)).to.equal(intialBalanceOfContract.add(namePrice));
+            expect(await copperToken.balanceOf(addr1.address)).to.equal(intialBalanceOfCaller.sub(namePrice));
         });
 
         it("Should not register uncommited name", async function () {
@@ -135,7 +135,7 @@ describe("NameRegistryV2", function () {
             const name = "myName";
 
             const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
-            await copperToken.connect(addr1).approve(sut.address, namePrice - 1);
+            await copperToken.connect(addr1).approve(sut.address, namePrice.sub(1));
 
             const nameHash = await sut.connect(addr1).getNameHash(name);
             await sut.connect(addr1).commitNameHash(nameHash);
@@ -194,8 +194,8 @@ describe("NameRegistryV2", function () {
             await sut.connect(addr1).releaseAvailableFunds([name]);
 
             // Assert
-            expect((await copperToken.balanceOf(addr1.address)).toNumber())
-                .to.eql(intitialBalance - (namePrice - await sut.getFixedCopperPerNameFee()));
+            expect(await copperToken.balanceOf(addr1.address))
+                .to.eql(intitialBalance.sub((namePrice.sub(await sut.getFixedCopperPerNameFee()))));
         });
 
         it("Should emit fundsReleased event with total amount of transfered tokens", async function () {
@@ -220,9 +220,9 @@ describe("NameRegistryV2", function () {
             const [owner, addr1] = await ethers.getSigners();
             const name1 = "myName1", name2 = "myName2", name3 = "myName3";
             const intitialBalance = await copperToken.balanceOf(addr1.address);
-            const namePrice1 = (await sut.connect(addr1).calculateNameRegistrationPrice(name1)).toNumber();
-            const namePrice2 = (await sut.connect(addr1).calculateNameRegistrationPrice(name2)).toNumber();
-            const namePrice3 = (await sut.connect(addr1).calculateNameRegistrationPrice(name3)).toNumber();
+            const namePrice1 = await sut.connect(addr1).calculateNameRegistrationPrice(name1);
+            const namePrice2 = await sut.connect(addr1).calculateNameRegistrationPrice(name2);
+            const namePrice3 = await sut.connect(addr1).calculateNameRegistrationPrice(name3);
             const fixedCopperPerNameFee = await sut.getFixedCopperPerNameFee();
 
             await copperToken.connect(addr1).approve(sut.address, namePrice1);
@@ -246,8 +246,8 @@ describe("NameRegistryV2", function () {
             await sut.connect(addr1).releaseAvailableFunds([name1, name2, name3]);
 
             // Assert
-            expect((await copperToken.balanceOf(addr1.address)).toNumber())
-                .to.eql((intitialBalance - (namePrice1 + namePrice2 + namePrice3)) + fixedCopperPerNameFee * 2);
+            expect(await copperToken.balanceOf(addr1.address))
+                .to.eql((intitialBalance.sub(namePrice1.add(namePrice2).add(namePrice3)).add(fixedCopperPerNameFee.mul(2))));
         });
 
         it("Should not release copper token second time for the same expired name (double spend)", async function () {
@@ -268,8 +268,8 @@ describe("NameRegistryV2", function () {
             await sut.connect(addr1).releaseAvailableFunds([name]);
 
             // Assert
-            expect((await copperToken.balanceOf(addr1.address)).toNumber())
-                .to.eql(intitialBalance - (namePrice - await sut.getFixedCopperPerNameFee()));
+            expect(await copperToken.balanceOf(addr1.address))
+                .to.eql(intitialBalance.sub(namePrice.sub(await sut.getFixedCopperPerNameFee())));
         });
 
         it("Should not release copper token for not expired name", async function () {
@@ -289,8 +289,7 @@ describe("NameRegistryV2", function () {
             await sut.connect(addr1).releaseAvailableFunds([name]);
 
             // Assert
-            expect((await copperToken.balanceOf(addr1.address)).toNumber())
-                .to.eql(intitialBalance - namePrice);
+            expect(await copperToken.balanceOf(addr1.address)).to.eql(intitialBalance.sub(namePrice));
         });
 
     });
@@ -302,12 +301,13 @@ describe("NameRegistryV2", function () {
             const [owner, addr1] = await ethers.getSigners();
             const name = "myName";
             const fixedNamePrice = await sut.getFixedCopperPerNameFee();
+            const oneToken = ethers.BigNumber.from(Math.pow(10, await copperToken.decimals()).toString());
 
             // Act
             const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
 
             // Assert
-            expect(namePrice).to.equal(fixedNamePrice.toNumber() + name.length);
+            expect(namePrice).to.equal(fixedNamePrice.add(oneToken.mul(name.length)));
         });
 
     });
