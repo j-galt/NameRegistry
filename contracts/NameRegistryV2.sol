@@ -27,10 +27,7 @@ contract NameRegistryV2 {
     uint256 private _defaultNameOwnershipPeriodInSeconds = 60 * 60 * 5;
 
     event nameRegistered(string name, address owner, uint256 priceInCopper);
-    event fundsReleased(
-        uint256 releasedCopper,
-        address owner
-    );
+    event fundsReleased(uint256 releasedCopper, address owner);
 
     constructor(address copperToken) {
         _copperToken = CopperToken(copperToken);

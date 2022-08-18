@@ -38,7 +38,7 @@ describe("NameRegistryV2", function () {
             await sut.connect(frontRunner).registerName(name);
 
             // Act & Assert
-            expect(await sut.connect(addr1).registerName(name))
+            await expect(sut.connect(addr1).registerName(name))
                 .to.emit(sut, "nameRegistered")
                 .withArgs(name, addr1.address, namePrice);
         });
@@ -196,6 +196,23 @@ describe("NameRegistryV2", function () {
             // Assert
             expect((await copperToken.balanceOf(addr1.address)).toNumber())
                 .to.eql(intitialBalance - (namePrice - await sut.getFixedCopperPerNameFee()));
+        });
+
+        it("Should emit fundsReleased event with total amount of transfered tokens", async function () {
+            // Arrange
+            const [owner, addr1, addr2] = await ethers.getSigners();
+            const name = "myName";
+            const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
+
+            await copperToken.connect(addr1).approve(sut.address, namePrice);
+            const nameHash = await sut.connect(addr1).getNameHash(name);
+            await sut.connect(addr1).commitNameHash(nameHash);
+            await sut.connect(addr1).registerName(name);
+            await increaseBlockTimestamp(60 * 60 * 6);
+
+            // Act & Assert
+            await expect(sut.connect(addr1).releaseAvailableFunds([name]))
+                .to.emit(sut, "fundsReleased").withArgs(await sut.getFixedCopperPerNameFee(), addr1.address);
         });
 
         it("Should release copper token only for expired names", async function () {
