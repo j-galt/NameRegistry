@@ -36,7 +36,6 @@ describe("NameRegistryV2", function () {
             const frontRunnerNameHash = await sut.connect(frontRunner).getNameHash(name);
             await sut.connect(frontRunner).commitNameHash(frontRunnerNameHash);
             await sut.connect(frontRunner).registerName(name);
-            expect(await sut.getAddressNames(frontRunner.address)).to.eql([name]);
 
             // Act & Assert
             expect(await sut.connect(addr1).registerName(name))
@@ -142,8 +141,7 @@ describe("NameRegistryV2", function () {
             await sut.connect(addr1).commitNameHash(nameHash);
 
             // Act & Assert
-            await expect(sut.connect(addr1).registerName(name))
-                .to.be.revertedWith("The client hasn't set enough allowance for NameRegistry contract to pay for the name");
+            await expect(sut.connect(addr1).registerName(name)).to.be.revertedWith("ERC20: insufficient allowance");
         });
 
     });
@@ -183,113 +181,99 @@ describe("NameRegistryV2", function () {
             // Arrange
             const [owner, addr1, addr2] = await ethers.getSigners();
             const name = "myName";
+            const intitialBalance = await copperToken.balanceOf(addr1.address);
+            const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
 
-            await approveCopperForName(name, addr1);
+            await copperToken.connect(addr1).approve(sut.address, namePrice);
             const nameHash = await sut.connect(addr1).getNameHash(name);
             await sut.connect(addr1).commitNameHash(nameHash);
             await sut.connect(addr1).registerName(name);
             await increaseBlockTimestamp(60 * 60 * 6);
 
-            // Act
-            await sut.connect(addr1).releaseAvailableFunds();
+            // Acts
+            await sut.connect(addr1).releaseAvailableFunds([name]);
 
             // Assert
-            expect(await copperToken.allowance(sut.address, addr1.address)).to.eql(await sut.getFixedCopperPerNameFee());
+            expect((await copperToken.balanceOf(addr1.address)).toNumber())
+                .to.eql(intitialBalance - (namePrice - await sut.getFixedCopperPerNameFee()));
         });
 
         it("Should release copper token only for expired names", async function () {
             // Arrange
             const [owner, addr1] = await ethers.getSigners();
             const name1 = "myName1", name2 = "myName2", name3 = "myName3";
+            const intitialBalance = await copperToken.balanceOf(addr1.address);
+            const namePrice1 = (await sut.connect(addr1).calculateNameRegistrationPrice(name1)).toNumber();
+            const namePrice2 = (await sut.connect(addr1).calculateNameRegistrationPrice(name2)).toNumber();
+            const namePrice3 = (await sut.connect(addr1).calculateNameRegistrationPrice(name3)).toNumber();
+            const fixedCopperPerNameFee = await sut.getFixedCopperPerNameFee();
 
-            await approveCopperForName(name1, addr1);
+            await copperToken.connect(addr1).approve(sut.address, namePrice1);
             const nameHash1 = await sut.connect(addr1).getNameHash(name1);
             await sut.connect(addr1).commitNameHash(nameHash1);
             await sut.connect(addr1).registerName(name1);
 
-            await approveCopperForName(name2, addr1);
+            await copperToken.connect(addr1).approve(sut.address, namePrice2);
             const nameHash2 = await sut.connect(addr1).getNameHash(name2);
             await sut.connect(addr1).commitNameHash(nameHash2);
             await sut.connect(addr1).registerName(name2);
 
             await increaseBlockTimestamp(60 * 60 * 6);
 
-            await approveCopperForName(name3, addr1);
+            await copperToken.connect(addr1).approve(sut.address, namePrice3);
             const nameHash3 = await sut.connect(addr1).getNameHash(name3);
             await sut.connect(addr1).commitNameHash(nameHash3);
             await sut.connect(addr1).registerName(name3);
 
             // Act
-            await sut.connect(addr1).releaseAvailableFunds();
+            await sut.connect(addr1).releaseAvailableFunds([name1, name2, name3]);
 
             // Assert
-            expect(await copperToken.allowance(sut.address, addr1.address)).to.equal(await sut.getFixedCopperPerNameFee() * 2);
+            expect((await copperToken.balanceOf(addr1.address)).toNumber())
+                .to.eql((intitialBalance - (namePrice1 + namePrice2 + namePrice3)) + fixedCopperPerNameFee * 2);
         });
 
         it("Should not release copper token second time for the same expired name (double spend)", async function () {
             // Arrange
             const [owner, addr1] = await ethers.getSigners();
             const name = "myName";
+            const intitialBalance = await copperToken.balanceOf(addr1.address);
+            const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
 
-            await approveCopperForName(name, addr1);
+            await copperToken.connect(addr1).approve(sut.address, namePrice);
             const nameHash = await sut.connect(addr1).getNameHash(name);
             await sut.connect(addr1).commitNameHash(nameHash);
             await sut.connect(addr1).registerName(name);
             await increaseBlockTimestamp(60 * 60 * 6);
 
             // Act
-            await sut.connect(addr1).releaseAvailableFunds();
-            await sut.connect(addr1).releaseAvailableFunds();
+            await sut.connect(addr1).releaseAvailableFunds([name]);
+            await sut.connect(addr1).releaseAvailableFunds([name]);
 
             // Assert
-            expect(await copperToken.allowance(sut.address, addr1.address)).to.eql(await sut.getFixedCopperPerNameFee());
+            expect((await copperToken.balanceOf(addr1.address)).toNumber())
+                .to.eql(intitialBalance - (namePrice - await sut.getFixedCopperPerNameFee()));
         });
 
         it("Should not release copper token for not expired name", async function () {
             // Arrange
             const [owner, addr1] = await ethers.getSigners();
             const name = "myName";
+            const intitialBalance = await copperToken.balanceOf(addr1.address);
+            const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
 
-            await approveCopperForName(name, addr1);
+            await copperToken.connect(addr1).approve(sut.address, namePrice);
             const nameHash = await sut.connect(addr1).getNameHash(name);
             await sut.connect(addr1).commitNameHash(nameHash);
             await sut.connect(addr1).registerName(name);
             await increaseBlockTimestamp(60 * 60 * 4);
 
             // Act
-            await sut.connect(addr1).releaseAvailableFunds();
+            await sut.connect(addr1).releaseAvailableFunds([name]);
 
             // Assert
-            expect(await copperToken.allowance(sut.address, addr1.address)).to.equal(0);
-        });
-
-        it("Should clean expired names", async function () {
-            // Arrange
-            const [owner, addr1] = await ethers.getSigners();
-            const name1 = "myName1", name2 = "myName2", name3 = "myName3";
-
-            await approveCopperForName(name1, addr1);
-            const nameHash1 = await sut.connect(addr1).getNameHash(name1);
-            await sut.connect(addr1).commitNameHash(nameHash1);
-            await sut.connect(addr1).registerName(name1);
-
-            await increaseBlockTimestamp(60 * 60 * 6);
-
-            await approveCopperForName(name2, addr1);
-            const nameHash2 = await sut.connect(addr1).getNameHash(name2);
-            await sut.connect(addr1).commitNameHash(nameHash2);
-            await sut.connect(addr1).registerName(name2);
-
-            await approveCopperForName(name3, addr1);
-            const nameHash3 = await sut.connect(addr1).getNameHash(name3);
-            await sut.connect(addr1).commitNameHash(nameHash3);
-            await sut.connect(addr1).registerName(name3);
-
-            // Act
-            await sut.connect(addr1).releaseAvailableFunds();
-
-            // Assert
-            expect(await sut.getAddressNames(addr1.address)).to.eql([name3, name2]);
+            expect((await copperToken.balanceOf(addr1.address)).toNumber())
+                .to.eql(intitialBalance - namePrice);
         });
 
     });
