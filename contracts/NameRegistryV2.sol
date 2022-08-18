@@ -23,7 +23,7 @@ contract NameRegistryV2 {
     mapping(bytes32 => Committer) private committedNameHashes;
     address[] private committers;
 
-    mapping(string => Name) private _registeredNames;
+    mapping(bytes32 => Name) private _registeredNames;
     uint256 private _defaultNameOwnershipPeriodInSeconds = 60 * 60 * 5;
 
     event nameRegistered(string name, address owner, uint256 priceInCopper);
@@ -77,7 +77,7 @@ contract NameRegistryV2 {
         require(ownerCandidate.addr == msg.sender, "Name not committed");
 
         address newNameOwnerAddress = ownerCandidate.addr;
-        Name memory registeredName = _registeredNames[name];
+        Name memory registeredName = _registeredNames[getNameIndex(name)];
 
         if (registeredName.owner != address(0)) {
             bytes32 hashOfNameHashOfNameOwner = getHashOfNameHash(
@@ -108,11 +108,12 @@ contract NameRegistryV2 {
         uint totalFundsToReturn;
 
         for (uint i = 0; i < namesToBeReleased.length; i++) {
-            Name memory name = _registeredNames[namesToBeReleased[i]];
+            bytes32 nameIndex = getNameIndex(namesToBeReleased[i]);
+            Name memory name = _registeredNames[nameIndex];
 
             if (name.owner != address(0) && nameExpired(name.ownershipExpirationTimestamp)) {
                 totalFundsToReturn += _copperPerNamePrice;
-                delete _registeredNames[namesToBeReleased[i]];
+                delete _registeredNames[nameIndex];
             }
         }
 
@@ -163,7 +164,7 @@ contract NameRegistryV2 {
     function registerName(address nameOwner, string memory name) private {
         uint256 nameRegistrationPriceInCopper = calculateNameRegistrationPrice(name);
 
-        _registeredNames[name] = Name({
+        _registeredNames[getNameIndex(name)] = Name({
             owner: nameOwner,
             ownershipExpirationTimestamp: block.timestamp +_defaultNameOwnershipPeriodInSeconds
         });
@@ -194,5 +195,9 @@ contract NameRegistryV2 {
         return
             ownershipExpirationTimestamp > 0 &&
             ownershipExpirationTimestamp < block.timestamp;
+    }
+
+    function getNameIndex(string memory name) private pure returns(bytes32) {
+        return keccak256(abi.encodePacked(name));
     }
 }
