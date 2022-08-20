@@ -9,16 +9,18 @@ import "hardhat/console.sol";
 contract NameRegistryV2 is INameRegistry {
     ERC20 private _erc20Token;
 
-    uint256 private _sequenceNumber;
-    uint256 private _copperPerNamePrice;
-    uint256 private constant _defaultNameOwnershipPeriodInSeconds = 60 * 60 * 5;
+    uint96 private _sequenceNumber;
+    uint256 private _fixedTokenPerNamePrice;
+    uint256 private _fixedTokenPerSymbolPrice;
+    uint16 private constant _defaultNameOwnershipPeriodInSeconds = 60 * 60 * 5;
 
     mapping(bytes32 => Committer) private _committers;
     mapping(bytes32 => Name) private _registeredNames;
 
     constructor(address erc20Token) {
         _erc20Token = ERC20(erc20Token);
-        _copperPerNamePrice = 5 * 10**_erc20Token.decimals();
+        _fixedTokenPerNamePrice = 5 * 10**_erc20Token.decimals();
+        _fixedTokenPerSymbolPrice = 10**_erc20Token.decimals();
     }
 
     /// @notice Commits name hash got from getNameHash function.
@@ -43,10 +45,7 @@ contract NameRegistryV2 is INameRegistry {
     /// it will give it back to the earlier committer once the leter calls the function. Name expires in some time.
     /// @param name Name to be registered.
     function registerName(string memory name) external {
-        bytes32 committerIndex = _getCommitterIndex(
-            getNameHash(name, msg.sender),
-            msg.sender
-        );
+        bytes32 committerIndex = _getCommitterIndex(getNameHash(name, msg.sender), msg.sender);
 
         Committer memory ownerCandidate = _committers[committerIndex];
         require(ownerCandidate.addr == msg.sender, "Name not committed");
@@ -60,14 +59,10 @@ contract NameRegistryV2 is INameRegistry {
                 registeredName.owner
             );
 
-            Committer memory currentNameOwner = _committers[
-                committerIndexOfNameOwner
-            ];
+            Committer memory currentNameOwner = _committers[committerIndexOfNameOwner];
 
-            if (
-                ownerCandidate._sequenceNumber >
-                currentNameOwner._sequenceNumber &&
-                !_nameExpired(registeredName.ownershipExpirationTimestamp)
+            if (ownerCandidate._sequenceNumber > currentNameOwner._sequenceNumber 
+                && !_nameExpired(registeredName.ownershipExpirationTimestamp)
             ) {
                 newNameOwnerAddress = currentNameOwner.addr;
             }
@@ -86,87 +81,71 @@ contract NameRegistryV2 is INameRegistry {
             bytes32 nameIndex = _getNameIndex(namesToBeReleased[i]);
             Name memory name = _registeredNames[nameIndex];
 
-            if (
-                name.owner != address(0) &&
-                _nameExpired(name.ownershipExpirationTimestamp)
-            ) {
-                totalFundsToReturn += _copperPerNamePrice;
+            if (name.owner != address(0) && _nameExpired(name.ownershipExpirationTimestamp)) {
+                totalFundsToReturn += _fixedTokenPerNamePrice;
                 delete _registeredNames[nameIndex];
             }
         }
 
         if (totalFundsToReturn > 0) {
             _erc20Token.transfer(msg.sender, totalFundsToReturn);
-            emit fundsReleased(totalFundsToReturn, msg.sender);
+            emit fundsReleased(msg.sender, totalFundsToReturn);
         }
     }
 
-    /// @notice Gets the fixed portion of the price per name in Copper Token.
-    /// @return price The price per name in Copper Token.
-    function getFixedCopperPerNameFee() external view returns (uint256 price) {
-        return _copperPerNamePrice;
+    /// @notice Gets the fixed portion of the price per name in ERC20 token.
+    /// @return price The price per name in ERC20 token.
+    function getFixedNamePrice() external view returns (uint256 price) {
+        return _fixedTokenPerNamePrice;
+    }
+
+    /// @notice Checks if the addr is the owner of the name.
+    /// @param addr Address to check.
+    /// @param name Name to check.
+    /// @return isNameOwner True if the addr is the owner of the name, false otherwise.
+    function isNameOwner(address addr, string memory name) external view returns (bool)
+    {
+        return _registeredNames[_getNameIndex(name)].owner == addr;
     }
 
     /// @notice Gets hash of the name.
     /// @param name Name to be registered.
     /// @return hash Hash of the name.
-    function getNameHash(string memory name, address sender)
-        public
-        pure
-        returns (bytes32)
+    function getNameHash(string memory name, address sender) public pure returns (bytes32)
     {
         return keccak256(abi.encodePacked(name, sender));
     }
 
-    /// @notice Calculates name registration price in Copper Token based on the name length.
+    /// @notice Calculates name registration price in ERC20 token based on the name length.
     /// @param name Name to be evaluated.
-    /// @return price Name registration price in Copper Token.
-    function calculateNameRegistrationPrice(string memory name)
-        public
-        view
-        returns (uint256)
+    /// @return price Name registration price in ERC20 token.
+    function calculateNameRegistrationPrice(string memory name) public view returns (uint256)
     {
-        uint256 nameRegistrationFee = bytes(name).length *
-            10**_erc20Token.decimals();
-        return _copperPerNamePrice + nameRegistrationFee;
+        uint256 nameRegistrationFee = bytes(name).length * _fixedTokenPerSymbolPrice;
+        return _fixedTokenPerNamePrice + nameRegistrationFee;
     }
 
     function _registerName(address nameOwner, string memory name) private {
-        uint256 nameRegistrationPriceInCopper = calculateNameRegistrationPrice(
-            name
-        );
+        uint256 nameRegistrationPrice = calculateNameRegistrationPrice(name);
 
         _registeredNames[_getNameIndex(name)] = Name({
             owner: nameOwner,
-            ownershipExpirationTimestamp: block.timestamp +
-                _defaultNameOwnershipPeriodInSeconds
+            ownershipExpirationTimestamp: uint64(block.timestamp) + _defaultNameOwnershipPeriodInSeconds
         });
 
-        _erc20Token.transferFrom(
-            msg.sender,
-            address(this),
-            nameRegistrationPriceInCopper
-        );
+        _erc20Token.transferFrom(msg.sender, address(this), nameRegistrationPrice);
 
-        emit nameRegistered(name, nameOwner, nameRegistrationPriceInCopper);
+        emit nameRegistered(nameOwner, name, nameRegistrationPrice);
     }
 
-    function _getCommitterIndex(bytes32 nameHash, address addr)
-        private
-        pure
-        returns (bytes32)
+    function _getCommitterIndex(bytes32 nameHash, address addr) private pure returns (bytes32)
     {
         return keccak256(abi.encodePacked(nameHash, addr));
     }
 
-    function _nameExpired(uint256 ownershipExpirationTimestamp)
-        private
-        view
-        returns (bool)
+    function _nameExpired(uint256 ownershipExpirationTimestamp) private view returns (bool)
     {
-        return
-            ownershipExpirationTimestamp > 0 &&
-            ownershipExpirationTimestamp < block.timestamp;
+        return ownershipExpirationTimestamp > 0 && ownershipExpirationTimestamp < block.timestamp;
     }
 
     function _getNameIndex(string memory name) private pure returns (bytes32) {

@@ -4,14 +4,14 @@ pragma solidity ^0.8.0;
 interface INameRegistry {
     struct Committer {
         address addr;
-        uint256 _sequenceNumber;
+        uint96 _sequenceNumber;
     }
 
     struct Name {
         address owner;
-        uint256 ownershipExpirationTimestamp;
+        uint64 ownershipExpirationTimestamp;
     }
 
-    event nameRegistered(string name, address owner, uint256 priceInCopper);
-    event fundsReleased(uint256 releasedCopper, address owner);
+    event nameRegistered(address indexed owner, string name, uint256 priceInCopper);
+    event fundsReleased(address indexed receiver, uint256 releasedCopper);
 }

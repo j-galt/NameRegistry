@@ -40,7 +40,7 @@ describe("NameRegistryV2", function () {
             // Act & Assert
             await expect(sut.connect(addr1).registerName(name))
                 .to.emit(sut, "nameRegistered")
-                .withArgs(name, addr1.address, namePrice);
+                .withArgs(addr1.address, name, namePrice);
         });
 
         it("Front running case 2. Should not register the name of the frontrunner if the frontrunner front run commit operation with the same name hash as the regular user", async function () {
@@ -126,7 +126,7 @@ describe("NameRegistryV2", function () {
             // Act & Assert
             expect(await sut.connect(addr2).registerName(name))
                 .to.emit(sut, "nameRegistered")
-                .withArgs(name, addr2.address, namePrice);
+                .withArgs(addr2.address, name, namePrice);
         });
 
         it("Should not register a name if allowance of copper is not enough to pay for it", async function () {
@@ -195,7 +195,7 @@ describe("NameRegistryV2", function () {
 
             // Assert
             expect(await copperToken.balanceOf(addr1.address))
-                .to.eql(intitialBalance.sub((namePrice.sub(await sut.getFixedCopperPerNameFee()))));
+                .to.eql(intitialBalance.sub((namePrice.sub(await sut.getFixedNamePrice()))));
         });
 
         it("Should emit fundsReleased event with total amount of transfered tokens", async function () {
@@ -212,7 +212,7 @@ describe("NameRegistryV2", function () {
 
             // Act & Assert
             await expect(sut.connect(addr1).releaseAvailableFunds([name]))
-                .to.emit(sut, "fundsReleased").withArgs(await sut.getFixedCopperPerNameFee(), addr1.address);
+                .to.emit(sut, "fundsReleased").withArgs(addr1.address, await sut.getFixedNamePrice());
         });
 
         it("Should release copper token only for expired names", async function () {
@@ -223,7 +223,7 @@ describe("NameRegistryV2", function () {
             const namePrice1 = await sut.connect(addr1).calculateNameRegistrationPrice(name1);
             const namePrice2 = await sut.connect(addr1).calculateNameRegistrationPrice(name2);
             const namePrice3 = await sut.connect(addr1).calculateNameRegistrationPrice(name3);
-            const fixedCopperPerNameFee = await sut.getFixedCopperPerNameFee();
+            const fixedCopperPerNameFee = await sut.getFixedNamePrice();
 
             await copperToken.connect(addr1).approve(sut.address, namePrice1);
             const nameHash1 = await sut.connect(addr1).getNameHash(name1, addr1.address);
@@ -269,7 +269,7 @@ describe("NameRegistryV2", function () {
 
             // Assert
             expect(await copperToken.balanceOf(addr1.address))
-                .to.eql(intitialBalance.sub(namePrice.sub(await sut.getFixedCopperPerNameFee())));
+                .to.eql(intitialBalance.sub(namePrice.sub(await sut.getFixedNamePrice())));
         });
 
         it("Should not release copper token for not expired name", async function () {
@@ -300,7 +300,7 @@ describe("NameRegistryV2", function () {
             // Arrange
             const [owner, addr1] = await ethers.getSigners();
             const name = "myName";
-            const fixedNamePrice = await sut.getFixedCopperPerNameFee();
+            const fixedNamePrice = await sut.getFixedNamePrice();
             const oneToken = ethers.BigNumber.from(Math.pow(10, await copperToken.decimals()).toString());
 
             // Act
@@ -308,6 +308,38 @@ describe("NameRegistryV2", function () {
 
             // Assert
             expect(namePrice).to.equal(fixedNamePrice.add(oneToken.mul(name.length)));
+        });
+
+    });
+
+    describe("#isNameOwner()", function () {
+
+        it("Should return true if the address owns the name", async function () {
+            // Arrange
+            const [owner, addr1] = await ethers.getSigners();
+            const name = "myName";
+
+            approveCopperForName(name, addr1);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
+            await sut.connect(addr1).commitNameHash(nameHash);
+            await sut.connect(addr1).registerName(name);
+
+            // Act & Assert
+            expect(await sut.isNameOwner(addr1.address, name)).to.eq(true);
+        });
+
+        it("Should return false if the address doesn't own the name", async function () {
+            // Arrange
+            const [owner, addr1, addr2] = await ethers.getSigners();
+            const name = "myName";
+
+            approveCopperForName(name, addr1);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
+            await sut.connect(addr1).commitNameHash(nameHash);
+            await sut.connect(addr1).registerName(name);
+
+            // Act & Assert
+            expect(await sut.isNameOwner(addr2.address, name)).to.eq(false);
         });
 
     });
