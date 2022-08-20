@@ -5,7 +5,9 @@ import "./INameRegistry.sol";
 import "./CopperToken.sol";
 import "hardhat/console.sol";
 
-/// @title Name Registry
+/// @title Name Registry with front-running protection.
+/// @dev If a name is front run and the actual owner attempts to register the name, the ownership will be transfered
+/// to the actual owner.
 contract NameRegistryV2 is INameRegistry {
     ERC20 private _erc20Token;
 
@@ -28,10 +30,7 @@ contract NameRegistryV2 is INameRegistry {
     function commitNameHash(bytes32 nameHash) external {
         bytes32 committerIndex = _getCommitterIndex(nameHash, msg.sender);
 
-        require(
-            _committers[committerIndex].addr == address(0),
-            "Name already committed"
-        );
+        require(_committers[committerIndex].addr == address(0), "Name already committed");
 
         _committers[committerIndex] = Committer({
             addr: msg.sender,
@@ -103,24 +102,21 @@ contract NameRegistryV2 is INameRegistry {
     /// @param addr Address to check.
     /// @param name Name to check.
     /// @return isNameOwner True if the addr is the owner of the name, false otherwise.
-    function isNameOwner(address addr, string memory name) external view returns (bool)
-    {
+    function isNameOwner(address addr, string memory name) external view returns (bool) {
         return _registeredNames[_getNameIndex(name)].owner == addr;
     }
 
     /// @notice Gets hash of the name.
     /// @param name Name to be registered.
     /// @return hash Hash of the name.
-    function getNameHash(string memory name, address sender) public pure returns (bytes32)
-    {
+    function getNameHash(string memory name, address sender) public pure returns (bytes32) {
         return keccak256(abi.encodePacked(name, sender));
     }
 
     /// @notice Calculates name registration price in ERC20 token based on the name length.
     /// @param name Name to be evaluated.
     /// @return price Name registration price in ERC20 token.
-    function calculateNameRegistrationPrice(string memory name) public view returns (uint256)
-    {
+    function calculateNameRegistrationPrice(string memory name) public view returns (uint256) {
         uint256 nameRegistrationFee = bytes(name).length * _fixedTokenPerSymbolPrice;
         return _fixedTokenPerNamePrice + nameRegistrationFee;
     }
@@ -138,13 +134,11 @@ contract NameRegistryV2 is INameRegistry {
         emit nameRegistered(nameOwner, name, nameRegistrationPrice);
     }
 
-    function _getCommitterIndex(bytes32 nameHash, address addr) private pure returns (bytes32)
-    {
+    function _getCommitterIndex(bytes32 nameHash, address addr) private pure returns (bytes32) {
         return keccak256(abi.encodePacked(nameHash, addr));
     }
 
-    function _nameExpired(uint256 ownershipExpirationTimestamp) private view returns (bool)
-    {
+    function _nameExpired(uint256 ownershipExpirationTimestamp) private view returns (bool) {
         return ownershipExpirationTimestamp > 0 && ownershipExpirationTimestamp < block.timestamp;
     }
 
