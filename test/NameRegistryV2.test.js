@@ -29,11 +29,11 @@ describe("NameRegistryV2", function () {
             const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
 
             await copperToken.connect(addr1).approve(sut.address, namePrice);
-            const nameHash = await sut.connect(addr1).getNameHash(name);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
             await sut.connect(addr1).commitNameHash(nameHash);
 
             await copperToken.connect(frontRunner).approve(sut.address, namePrice);
-            const frontRunnerNameHash = await sut.connect(frontRunner).getNameHash(name);
+            const frontRunnerNameHash = await sut.connect(frontRunner).getNameHash(name, frontRunner.address);
             await sut.connect(frontRunner).commitNameHash(frontRunnerNameHash);
             await sut.connect(frontRunner).registerName(name);
 
@@ -48,7 +48,7 @@ describe("NameRegistryV2", function () {
             const [owner, addr1, frontRunner] = await ethers.getSigners();
             const name = "myName";
 
-            const nameHash = await sut.connect(addr1).getNameHash(name);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
 
             await sut.connect(frontRunner).commitNameHash(nameHash);
             await sut.connect(addr1).commitNameHash(nameHash);
@@ -64,7 +64,7 @@ describe("NameRegistryV2", function () {
             const intialBalanceOfContract = await copperToken.balanceOf(sut.address);
             const intialBalanceOfCaller = await copperToken.balanceOf(addr1.address);
 
-            const nameHash = await sut.connect(addr1).getNameHash(name);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
             await sut.connect(addr1).commitNameHash(nameHash);
 
             const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
@@ -95,12 +95,12 @@ describe("NameRegistryV2", function () {
             const name = "myName";
 
             await approveCopperForName(name, addr1);
-            const nameHash = await sut.connect(addr1).getNameHash(name);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
             await sut.connect(addr1).commitNameHash(nameHash);
             await sut.connect(addr1).registerName(name);
 
             await approveCopperForName(name, addr2);
-            const nameHash2 = await sut.connect(addr2).getNameHash(name);
+            const nameHash2 = await sut.connect(addr2).getNameHash(name, addr2.address);
             await sut.connect(addr2).commitNameHash(nameHash2);
 
             // Act & Assert
@@ -114,13 +114,13 @@ describe("NameRegistryV2", function () {
             const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
 
             await copperToken.connect(addr1).approve(sut.address, namePrice);
-            const nameHash = await sut.connect(addr1).getNameHash(name);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
             await sut.connect(addr1).commitNameHash(nameHash);
             await sut.connect(addr1).registerName(name);
             await increaseBlockTimestamp(60 * 60 * 6);
 
             await copperToken.connect(addr2).approve(sut.address, namePrice);
-            const nameHash2 = await sut.connect(addr2).getNameHash(name);
+            const nameHash2 = await sut.connect(addr2).getNameHash(name, addr2.address);
             await sut.connect(addr2).commitNameHash(nameHash2);
 
             // Act & Assert
@@ -137,7 +137,7 @@ describe("NameRegistryV2", function () {
             const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
             await copperToken.connect(addr1).approve(sut.address, namePrice.sub(1));
 
-            const nameHash = await sut.connect(addr1).getNameHash(name);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
             await sut.connect(addr1).commitNameHash(nameHash);
 
             // Act & Assert
@@ -153,7 +153,7 @@ describe("NameRegistryV2", function () {
             const [owner, addr1, frontRunner] = await ethers.getSigners();
             const name = "myName";
 
-            const nameHash = await sut.connect(addr1).getNameHash(name);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
 
             // Act & Assert
             await sut.connect(frontRunner).commitNameHash(nameHash);
@@ -165,7 +165,7 @@ describe("NameRegistryV2", function () {
             const [owner, addr1] = await ethers.getSigners();
             const name = "myName";
 
-            const nameHash = await sut.connect(addr1).getNameHash(name);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
 
             await sut.connect(addr1).commitNameHash(nameHash);
 
@@ -185,7 +185,7 @@ describe("NameRegistryV2", function () {
             const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
 
             await copperToken.connect(addr1).approve(sut.address, namePrice);
-            const nameHash = await sut.connect(addr1).getNameHash(name);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
             await sut.connect(addr1).commitNameHash(nameHash);
             await sut.connect(addr1).registerName(name);
             await increaseBlockTimestamp(60 * 60 * 6);
@@ -205,7 +205,7 @@ describe("NameRegistryV2", function () {
             const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
 
             await copperToken.connect(addr1).approve(sut.address, namePrice);
-            const nameHash = await sut.connect(addr1).getNameHash(name);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
             await sut.connect(addr1).commitNameHash(nameHash);
             await sut.connect(addr1).registerName(name);
             await increaseBlockTimestamp(60 * 60 * 6);
@@ -226,19 +226,19 @@ describe("NameRegistryV2", function () {
             const fixedCopperPerNameFee = await sut.getFixedCopperPerNameFee();
 
             await copperToken.connect(addr1).approve(sut.address, namePrice1);
-            const nameHash1 = await sut.connect(addr1).getNameHash(name1);
+            const nameHash1 = await sut.connect(addr1).getNameHash(name1, addr1.address);
             await sut.connect(addr1).commitNameHash(nameHash1);
             await sut.connect(addr1).registerName(name1);
 
             await copperToken.connect(addr1).approve(sut.address, namePrice2);
-            const nameHash2 = await sut.connect(addr1).getNameHash(name2);
+            const nameHash2 = await sut.connect(addr1).getNameHash(name2, addr1.address);
             await sut.connect(addr1).commitNameHash(nameHash2);
             await sut.connect(addr1).registerName(name2);
 
             await increaseBlockTimestamp(60 * 60 * 6);
 
             await copperToken.connect(addr1).approve(sut.address, namePrice3);
-            const nameHash3 = await sut.connect(addr1).getNameHash(name3);
+            const nameHash3 = await sut.connect(addr1).getNameHash(name3, addr1.address);
             await sut.connect(addr1).commitNameHash(nameHash3);
             await sut.connect(addr1).registerName(name3);
 
@@ -258,7 +258,7 @@ describe("NameRegistryV2", function () {
             const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
 
             await copperToken.connect(addr1).approve(sut.address, namePrice);
-            const nameHash = await sut.connect(addr1).getNameHash(name);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
             await sut.connect(addr1).commitNameHash(nameHash);
             await sut.connect(addr1).registerName(name);
             await increaseBlockTimestamp(60 * 60 * 6);
@@ -280,7 +280,7 @@ describe("NameRegistryV2", function () {
             const namePrice = await sut.connect(addr1).calculateNameRegistrationPrice(name);
 
             await copperToken.connect(addr1).approve(sut.address, namePrice);
-            const nameHash = await sut.connect(addr1).getNameHash(name);
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
             await sut.connect(addr1).commitNameHash(nameHash);
             await sut.connect(addr1).registerName(name);
             await increaseBlockTimestamp(60 * 60 * 4);
