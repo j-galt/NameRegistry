@@ -160,6 +160,18 @@ describe("NameRegistryV2", function () {
             await sut.connect(addr1).commitNameHash(nameHash);
         });
 
+        it("Should emit nameHashCommitted event", async function () {
+            // Arrange
+            const [owner, addr1] = await ethers.getSigners();
+            const name = "myName";
+
+            const nameHash = await sut.connect(addr1).getNameHash(name, addr1.address);
+
+            // Act & Assert 
+            await expect(sut.connect(addr1).commitNameHash(nameHash))
+                .to.emit(sut, "nameHashCommitted").withArgs(addr1.address, nameHash);
+        });
+
         it("Should not allow committing the same name hash for the same address twice", async function () {
             // Arrange
             const [owner, addr1] = await ethers.getSigners();
